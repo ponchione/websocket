@@ -162,6 +162,17 @@ func (c *Conn) CloseWithContext(ctx context.Context, code StatusCode, reason str
 		}
 	}()
 
+	// Preflight: caller already abandoned before we did any work. Skip the
+	// handshake entirely, force transport teardown, and surface the ctx error
+	// deterministically. Without this, mu.lock's internal select between
+	// ctx.Done() and the lock channel races on a fresh conn, so the returned
+	// error shape would be non-deterministic (nil or wrapped ctx error).
+	if cerr := ctx.Err(); cerr != nil {
+		_ = c.close()
+		_ = c.waitGoroutines()
+		return cerr
+	}
+
 	// Best-effort close frame write under caller's ctx. If this fails we still
 	// proceed to forced teardown so callers get the transport-death guarantee.
 	writeErr := c.writeCloseCtx(ctx, code, reason)

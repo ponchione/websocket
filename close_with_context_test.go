@@ -270,14 +270,8 @@ func TestCloseWithContext_ConcurrentCloseNow(t *testing.T) {
 }
 
 // TestCloseWithContext_AlreadyExpiredContext: ctx already expired at call
-// time; method returns promptly with transport torn down. Error is either
-// wrapped context.Canceled OR nil — mu.lock's internal select races between
-// ctx.Done() and the lock channel when both are ready, so when the lock
-// channel wins the write succeeds, waitCloseHandshake later sees the
-// already-closed transport and returns net.ErrClosed, which the outer
-// defer swallows to nil. The load-bearing guarantee is prompt return with
-// dead transport; the exact error shape is non-deterministic in this
-// corner case.
+// time; method short-circuits via preflight, forces transport teardown, and
+// returns wrapped context.Canceled deterministically.
 func TestCloseWithContext_AlreadyExpiredContext(t *testing.T) {
 	t.Parallel()
 
@@ -296,8 +290,11 @@ func TestCloseWithContext_AlreadyExpiredContext(t *testing.T) {
 	if elapsed > 500*time.Millisecond {
 		t.Fatalf("expired-ctx close took %v, expected <500ms", elapsed)
 	}
-	if err != nil && !errors.Is(err, context.Canceled) {
-		t.Fatalf("expected nil or wrapped context.Canceled, got %v", err)
+	if err == nil {
+		t.Fatal("expected wrapped context.Canceled, got nil")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected wrapped context.Canceled, got %v", err)
 	}
 
 	werr := c.Write(context.Background(), websocket.MessageText, []byte("x"))
