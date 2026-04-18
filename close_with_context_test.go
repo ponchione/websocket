@@ -431,19 +431,24 @@ func TestCloseWithContext_Race_ActivePing(t *testing.T) {
 // TestCloseWithContext_NoGoroutineLeaks: repeated open/close cycles must not
 // leak goroutines. No external dependency — manual NumGoroutine comparison
 // with a settling GC pass.
+//
+// Each iteration uses a fresh unresponsivePeerServer so the peer's stalled
+// handler goroutine is released by cleanup() on every cycle. Sharing one
+// server across iterations would accumulate handler goroutines on the peer
+// side (each dial spawns one handler blocked on <-release) and surface as a
+// false-positive leak unrelated to CloseWithContext's client-side teardown.
 func TestCloseWithContext_NoGoroutineLeaks(t *testing.T) {
 	t.Parallel()
-
-	url, cleanup := unresponsivePeerServer(t)
-	defer cleanup()
 
 	// Warm up: first connection brings up httptest, HTTP transport pools, etc.
 	// Measure the steady-state delta starting from the second iteration.
 	{
+		url, cleanup := unresponsivePeerServer(t)
 		c := dialTest(t, url)
 		cctx, ccancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 		_ = c.CloseWithContext(cctx, websocket.StatusNormalClosure, "")
 		ccancel()
+		cleanup()
 	}
 	runtime.GC()
 	time.Sleep(100 * time.Millisecond)
@@ -451,10 +456,12 @@ func TestCloseWithContext_NoGoroutineLeaks(t *testing.T) {
 
 	const iterations = 20
 	for i := 0; i < iterations; i++ {
+		url, cleanup := unresponsivePeerServer(t)
 		c := dialTest(t, url)
 		cctx, ccancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 		_ = c.CloseWithContext(cctx, websocket.StatusNormalClosure, "")
 		ccancel()
+		cleanup()
 	}
 
 	// Allow stragglers to finish.
