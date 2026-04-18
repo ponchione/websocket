@@ -26,6 +26,7 @@ go get github.com/coder/websocket
 - Zero alloc reads and writes
 - Concurrent writes
 - [Close handshake](https://pkg.go.dev/github.com/coder/websocket#Conn.Close)
+- [CloseWithContext](https://pkg.go.dev/github.com/coder/websocket#Conn.CloseWithContext) for caller-controlled close-handshake timeouts with guaranteed transport teardown (Shunter fork)
 - [net.Conn](https://pkg.go.dev/github.com/coder/websocket#NetConn) wrapper
 - [Ping pong](https://pkg.go.dev/github.com/coder/websocket#Conn.Ping) API
 - [RFC 7692](https://tools.ietf.org/html/rfc7692) permessage-deflate compression
