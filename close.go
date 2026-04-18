@@ -129,6 +129,73 @@ func (c *Conn) Close(code StatusCode, reason string) (err error) {
 	return err
 }
 
+// CloseWithContext performs the WebSocket close handshake under caller-controlled
+// cancellation. It writes a Close frame, then waits for the peer's Close frame
+// until ctx is done. If ctx expires or is cancelled before the peer responds,
+// the underlying transport is forcibly torn down and CloseWithContext returns.
+//
+// Unlike Close, the caller owns the timeout. This method guarantees that the
+// underlying transport is unusable by the time it returns, even if the peer
+// never responds. Existing Close and CloseNow semantics are unchanged.
+//
+// The connection can only be closed once. If Close, CloseNow, or CloseWithContext
+// has already been called, this returns after existing close goroutines have
+// unwound.
+//
+// The maximum length of reason must be 125 bytes. Avoid sending a dynamic reason.
+//
+// CloseWithContext will unblock all goroutines interacting with the connection
+// once complete.
+func (c *Conn) CloseWithContext(ctx context.Context, code StatusCode, reason string) (err error) {
+	defer errd.Wrap(&err, "failed to close WebSocket")
+
+	if c.casClosing() {
+		err = c.waitGoroutines()
+		if err != nil {
+			return err
+		}
+		return net.ErrClosed
+	}
+	defer func() {
+		if errors.Is(err, net.ErrClosed) {
+			err = nil
+		}
+	}()
+
+	// Best-effort close frame write under caller's ctx. If this fails we still
+	// proceed to forced teardown so callers get the transport-death guarantee.
+	writeErr := c.writeCloseCtx(ctx, code, reason)
+
+	// Wait for peer close under caller's ctx. On ctx expiry this returns
+	// promptly with a ctx error and we proceed to forced teardown.
+	waitErr := c.waitCloseHandshake(ctx)
+
+	// Forced transport teardown. c.close() is idempotent (guarded by isClosed),
+	// so this is safe even on the happy path where the handshake completed.
+	closeErr := c.close()
+
+	// Final goroutine-unwinding safety net (15s hardcoded upstream; unchanged).
+	gErr := c.waitGoroutines()
+
+	// Error priority:
+	//   1. write error (most actionable — tells caller the frame didn't go out)
+	//   2. wait error, if it isn't the expected peer Close with matching code
+	//      (ctx.DeadlineExceeded and ctx.Canceled surface here in the forced
+	//      teardown path)
+	//   3. close error
+	//   4. goroutine-unwind error
+	switch {
+	case writeErr != nil && !errors.Is(writeErr, net.ErrClosed):
+		return writeErr
+	case waitErr != nil && CloseStatus(waitErr) != code:
+		return waitErr
+	case closeErr != nil:
+		return closeErr
+	default:
+		return gErr
+	}
+}
+
 // CloseNow closes the WebSocket connection without attempting a close handshake.
 // Use when you do not want the overhead of the close handshake.
 func (c *Conn) CloseNow() (err error) {
