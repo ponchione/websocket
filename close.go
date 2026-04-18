@@ -112,7 +112,9 @@ func (c *Conn) Close(code StatusCode, reason string) (err error) {
 		}
 	}()
 
-	err = c.closeHandshake(code, reason)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	err = c.closeHandshake(ctx, code, reason)
 
 	err2 := c.close()
 	if err == nil && err2 != nil {
@@ -154,20 +156,29 @@ func (c *Conn) CloseNow() (err error) {
 	return err
 }
 
-func (c *Conn) closeHandshake(code StatusCode, reason string) error {
-	err := c.writeClose(code, reason)
+func (c *Conn) closeHandshake(ctx context.Context, code StatusCode, reason string) error {
+	err := c.writeCloseCtx(ctx, code, reason)
 	if err != nil {
 		return err
 	}
 
-	err = c.waitCloseHandshake()
+	err = c.waitCloseHandshake(ctx)
 	if CloseStatus(err) != code {
 		return err
 	}
 	return nil
 }
 
+// writeClose preserves the original signature used by non-handshake callers
+// (writeError in write.go, peer-initiated close echo in read.go). It wraps
+// writeCloseCtx with the historical 5-second default timeout.
 func (c *Conn) writeClose(code StatusCode, reason string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	return c.writeCloseCtx(ctx, code, reason)
+}
+
+func (c *Conn) writeCloseCtx(ctx context.Context, code StatusCode, reason string) error {
 	ce := CloseError{
 		Code:   code,
 		Reason: reason,
@@ -182,9 +193,6 @@ func (c *Conn) writeClose(code StatusCode, reason string) error {
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-
 	err = c.writeControl(ctx, opClose, p)
 	// If the connection closed as we're writing we ignore the error as we might
 	// have written the close frame, the peer responded and then someone else read it
@@ -195,10 +203,7 @@ func (c *Conn) writeClose(code StatusCode, reason string) error {
 	return nil
 }
 
-func (c *Conn) waitCloseHandshake() error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-
+func (c *Conn) waitCloseHandshake(ctx context.Context) error {
 	err := c.readMu.lock(ctx)
 	if err != nil {
 		return err
