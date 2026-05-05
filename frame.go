@@ -9,7 +9,7 @@ import (
 	"io"
 	"math"
 
-	"github.com/coder/websocket/internal/errd"
+	"github.com/ponchione/websocket/internal/errd"
 )
 
 // opcode represents a WebSocket opcode.

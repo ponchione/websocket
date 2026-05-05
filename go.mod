@@ -1,3 +1,3 @@
-module github.com/coder/websocket
+module github.com/ponchione/websocket
 
 go 1.23

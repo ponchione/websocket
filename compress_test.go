@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coder/websocket/internal/test/assert"
-	"github.com/coder/websocket/internal/test/xrand"
+	"github.com/ponchione/websocket/internal/test/assert"
+	"github.com/ponchione/websocket/internal/test/xrand"
 )
 
 func Test_slidingWindow(t *testing.T) {
@@ -67,7 +67,7 @@ func BenchmarkFlateReader(b *testing.B) {
 // TestWriteSingleFrameCompressed verifies that Conn.Write sends compressed
 // messages in a single frame instead of multiple frames, and that messages
 // below the flateThreshold are sent uncompressed.
-// This is a regression test for https://github.com/coder/websocket/issues/435
+// This is a regression test for https://github.com/ponchione/websocket/issues/435
 func TestWriteSingleFrameCompressed(t *testing.T) {
 	t.Parallel()
 

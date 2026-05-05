@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coder/websocket"
-	"github.com/coder/websocket/internal/test/assert"
-	"github.com/coder/websocket/internal/xsync"
+	"github.com/ponchione/websocket"
+	"github.com/ponchione/websocket/internal/test/assert"
+	"github.com/ponchione/websocket/internal/xsync"
 )
 
 // assertGateLoser checks that err from a second Close/CloseNow/CloseWithContext

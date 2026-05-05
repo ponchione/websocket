@@ -10,7 +10,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/coder/websocket/internal/test/assert"
+	"github.com/ponchione/websocket/internal/test/assert"
 )
 
 func Test_hijackerHTTPResponseControllerCompatibility(t *testing.T) {
