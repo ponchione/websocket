@@ -1,15 +1,15 @@
 module github.com/ponchione/websocket/internal/thirdparty
 
-go 1.23
+go 1.27.0
 
 replace github.com/ponchione/websocket => ../..
 
 require (
-	github.com/ponchione/websocket v0.0.0-00010101000000-000000000000
 	github.com/gin-gonic/gin v1.10.0
 	github.com/gobwas/ws v1.4.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/lesismal/nbio v1.5.12
+	github.com/ponchione/websocket v0.0.0-00010101000000-000000000000
 )
 
 require (

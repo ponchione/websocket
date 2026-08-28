@@ -1,6 +1,6 @@
 module github.com/ponchione/websocket/examples
 
-go 1.23
+go 1.27.0
 
 replace github.com/ponchione/websocket => ../..
 
